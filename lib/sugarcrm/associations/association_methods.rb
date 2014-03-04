@@ -12,12 +12,12 @@ module SugarCRM; module AssociationMethods
     end
     true
   end
-  
+
   # Returns the module link fields hash
   def link_fields
     self.class._module.link_fields
   end
-  
+
   # Creates a relationship between the current object and the target object
   # The current and target records will have a relationship set
   # i.e. account.associate!(contact) would link account and contact
@@ -26,16 +26,17 @@ module SugarCRM; module AssociationMethods
   # This method is useful when certain modules have many links to other modules: not loading the
   # relationships allows one to avoid a Timeout::Error
   def associate!(target,opts={})
+    association_field = opts.delete(:association_field)
     targets = Array.wrap(target)
     targets.each do |t|
-      association = @associations.find!(t)
+      association = @associations.find!(t, association_field)
       response = self.class.session.connection.set_relationship(
-        self.class._module.name, self.id, 
+        self.class._module.name, self.id,
         association.link_field, [t.id], opts
       )
       if response["failed"] > 0
-        raise AssociationFailed, 
-        "Couldn't associate #{self.class._module.name}: #{self.id} -> #{t}: #{t.id}!" 
+        raise AssociationFailed,
+        "Couldn't associate #{self.class._module.name}: #{self.id} -> #{t}: #{t.id}!"
       end
       # We need to update the association cache for any changes we make.
       if opts[:delete] == 1
@@ -49,13 +50,13 @@ module SugarCRM; module AssociationMethods
     true
   end
   alias :relate! :associate!
-    
+
   # Removes a relationship between the current object and the target object
   def disassociate!(target)
     associate!(target,{:delete => 1})
   end
   alias :unrelate! :disassociate!
-    
+
   protected
 
   # Generates the association proxy methods for related modules
@@ -64,8 +65,8 @@ module SugarCRM; module AssociationMethods
     return if association_methods_generated?
     self.class.association_methods_generated = true
   end
-  
-  # Returns the records from the associated module or returns the cached copy if we've already 
+
+  # Returns the records from the associated module or returns the cached copy if we've already
   # loaded it.  Force a reload of the records with reload=true
   #
   #  {"email_addresses"=>
@@ -79,8 +80,8 @@ module SugarCRM; module AssociationMethods
     association = assoc.to_sym
     return @association_cache[association] if association_cached?(association) && !reload
     # TODO: Some relationships aren't fetchable via get_relationship (i.e users.contacts)
-    # even though get_module_fields lists them on the related_fields array.  This is most 
-    # commonly seen with one-to-many relationships without a join table.  We need to cook 
+    # even though get_module_fields lists them on the related_fields array.  This is most
+    # commonly seen with one-to-many relationships without a join table.  We need to cook
     # up some elegant way to handle this.
     collection = AssociationCollection.new(self,association,true)
     # add it to the cache
